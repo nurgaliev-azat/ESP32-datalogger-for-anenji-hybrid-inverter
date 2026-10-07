@@ -23,7 +23,7 @@ constexpr size_t READ_RANGE_COUNT=
   sizeof(READ_RANGES)/sizeof(READ_RANGES[0]);
 
 constexpr size_t EEPROM_SIZE=8192;
-constexpr uint32_t EEPROM_MAGIC=0x414E454J;
+constexpr uint32_t EEPROM_MAGIC=0x414E454A;
 constexpr uint16_t EEPROM_VERSION=1;
 
 struct HistoryRecord {
@@ -126,7 +126,9 @@ bool getRegisterValue(uint16_t start,uint16_t count,const uint8_t* bytes,
   return true;
 }
 
-bool validClock(){return time(nullptr)>=100000;}
+bool validClock(){
+  return time(nullptr)>=100000;
+}
 
 String currentDateTimeString(){
   time_t now=time(nullptr);
@@ -170,7 +172,8 @@ void loadSettings(){
   appSettings.language=preferences.getString("language","en");
   preferences.end();
 
-  if(appSettings.pageUpdateSeconds<1 || appSettings.pageUpdateSeconds>3600)
+  if(appSettings.pageUpdateSeconds<1 ||
+     appSettings.pageUpdateSeconds>3600)
     appSettings.pageUpdateSeconds=5;
   if(appSettings.registerIntervalSeconds<5 ||
      appSettings.registerIntervalSeconds>3600)
@@ -201,11 +204,13 @@ bool connectToWiFi(){
   Serial.print("Подключение к Wi-Fi");
   uint32_t started=millis();
   while(WiFi.status()!=WL_CONNECTED && millis()-started<20000){
-    Serial.print('.');delay(500);
+    Serial.print('.');
+    delay(500);
   }
   Serial.println();
   if(WiFi.status()!=WL_CONNECTED)return false;
-  Serial.print("IP ESP32: ");Serial.println(WiFi.localIP());
+  Serial.print("IP ESP32: ");
+  Serial.println(WiFi.localIP());
   return true;
 }
 
@@ -214,7 +219,8 @@ void startSetupAccessPoint(){
   setupAccessPoint=true;
   WiFi.mode(WIFI_AP);
   WiFi.softAP("Anenji-setup","12345678");
-  Serial.print("Точка доступа, IP: ");Serial.println(WiFi.softAPIP());
+  Serial.print("Точка доступа, IP: ");
+  Serial.println(WiFi.softAPIP());
   beginWebServer(fillWebLiveData,getTodaySamples,getHistoryForWeb,
                  saveSettings,appSettings,true);
 }
@@ -222,23 +228,30 @@ void startSetupAccessPoint(){
 bool notifyDatalogger(){
   IPAddress ip;
   if(!ip.fromString(appSettings.inverterIp)){
-    Serial.println("Некорректный IP инвертора");return false;
+    Serial.println("Некорректный IP инвертора");
+    return false;
   }
-  String command="set>server="+WiFi.localIP().toString()+":"+
-                 String(TCP_PORT)+";";
+  String command="set>server="+WiFi.localIP().toString()+
+                 ":"+String(TCP_PORT)+";";
   if(!udp.begin(0))return false;
-  udp.beginPacket(ip,UDP_PORT);udp.print(command);udp.endPacket();
-  Serial.print("UDP: ");Serial.println(command);
+  udp.beginPacket(ip,UDP_PORT);
+  udp.print(command);
+  udp.endPacket();
+  Serial.print("UDP: ");
+  Serial.println(command);
+
   uint32_t started=millis();
   while(millis()-started<2000){
     if(udp.parsePacket()>0){
       Serial.print("UDP-ответ: ");
       while(udp.available())Serial.write(static_cast<uint8_t>(udp.read()));
-      Serial.println();break;
+      Serial.println();
+      break;
     }
     delay(10);
   }
-  udp.stop();return true;
+  udp.stop();
+  return true;
 }
 
 bool ensureInverterConnection(){
@@ -254,22 +267,29 @@ bool ensureInverterConnection(){
       Serial.println(inverterClient.remoteIP());
       return true;
     }
-    handleWebServer();delay(10);
+    handleWebServer();
+    delay(10);
   }
-  Serial.println("TCP-подключение не получено");return false;
+  Serial.println("TCP-подключение не получено");
+  return false;
 }
 
 void buildReadRequest(uint16_t start,uint16_t count,uint8_t request[8]){
-  request[0]=MODBUS_UNIT_ID;request[1]=MODBUS_FUNCTION;
-  request[2]=highByte(start);request[3]=lowByte(start);
-  request[4]=highByte(count);request[5]=lowByte(count);
+  request[0]=MODBUS_UNIT_ID;
+  request[1]=MODBUS_FUNCTION;
+  request[2]=highByte(start);
+  request[3]=lowByte(start);
+  request[4]=highByte(count);
+  request[5]=lowByte(count);
   uint16_t crc=crc16Modbus(request,6);
-  request[6]=lowByte(crc);request[7]=highByte(crc);
+  request[6]=lowByte(crc);
+  request[7]=highByte(crc);
 }
 
 bool readExactly(WiFiClient& client,uint8_t* dest,size_t count,
                  uint32_t timeoutMs){
-  size_t received=0;uint32_t started=millis();
+  size_t received=0;
+  uint32_t started=millis();
   while(received<count){
     while(client.available() && received<count){
       int v=client.read();
@@ -278,7 +298,8 @@ bool readExactly(WiFiClient& client,uint8_t* dest,size_t count,
     if(received==count)return true;
     if(millis()-started>=timeoutMs)return false;
     if(!client.connected() && !client.available())return false;
-    handleWebServer();delay(1);
+    handleWebServer();
+    delay(1);
   }
   return true;
 }
@@ -289,10 +310,15 @@ size_t historyRecordAddress(size_t index){
 
 void initializeHistoryHeader(HistoryHeader& header){
   EEPROM.get(0,header);
-  if(header.magic!=EEPROM_MAGIC || header.version!=EEPROM_VERSION ||
-     header.count>MAX_HISTORY_RECORDS || header.writeIndex>=MAX_HISTORY_RECORDS){
-    header={};header.magic=EEPROM_MAGIC;header.version=EEPROM_VERSION;
-    EEPROM.put(0,header);EEPROM.commit();
+  if(header.magic!=EEPROM_MAGIC ||
+     header.version!=EEPROM_VERSION ||
+     header.count>MAX_HISTORY_RECORDS ||
+     header.writeIndex>=MAX_HISTORY_RECORDS){
+    header={};
+    header.magic=EEPROM_MAGIC;
+    header.version=EEPROM_VERSION;
+    EEPROM.put(0,header);
+    EEPROM.commit();
   }
 }
 
@@ -304,35 +330,51 @@ uint32_t storedWs(float value){
 
 void saveHourToEeprom(const EnergyAccumulator& energy,time_t hourStart){
   if(hourStart<100000)return;
-  HistoryHeader header;initializeHistoryHeader(header);
-  struct tm t;localtime_r(&hourStart,&t);
-  HistoryRecord r={};r.year=t.tm_year+1900;r.month=t.tm_mon+1;
-  r.day=t.tm_mday;r.hour=t.tm_hour;
-  r.gridWs=storedWs(energy.gridWs);r.pvWs=storedWs(energy.pvWs);
+  HistoryHeader header;
+  initializeHistoryHeader(header);
+  struct tm t;
+  localtime_r(&hourStart,&t);
+
+  HistoryRecord r={};
+  r.year=t.tm_year+1900;
+  r.month=t.tm_mon+1;
+  r.day=t.tm_mday;
+  r.hour=t.tm_hour;
+  r.gridWs=storedWs(energy.gridWs);
+  r.pvWs=storedWs(energy.pvWs);
   r.loadWs=storedWs(energy.loadWs);
   r.batteryChargeWs=storedWs(energy.batteryChargeWs);
   r.batteryDischargeWs=storedWs(energy.batteryDischargeWs);
+
   EEPROM.put(historyRecordAddress(header.writeIndex),r);
   header.writeIndex=(header.writeIndex+1)%MAX_HISTORY_RECORDS;
   if(header.count<MAX_HISTORY_RECORDS)header.count++;
-  EEPROM.put(0,header);EEPROM.commit();
+  EEPROM.put(0,header);
+  EEPROM.commit();
+  Serial.printf("Сохранён час %04u-%02u-%02u %02u:00\n",
+                r.year,r.month,r.day,r.hour);
 }
 
 size_t readAllHistory(HistoryRecord* output,size_t maxRecords){
-  HistoryHeader header;initializeHistoryHeader(header);
+  HistoryHeader header;
+  initializeHistoryHeader(header);
   size_t count=min(static_cast<size_t>(header.count),maxRecords);
   size_t first=header.count<MAX_HISTORY_RECORDS?0:header.writeIndex;
   for(size_t i=0;i<count;i++)
-    EEPROM.get(historyRecordAddress((first+i)%MAX_HISTORY_RECORDS),output[i]);
+    EEPROM.get(historyRecordAddress((first+i)%MAX_HISTORY_RECORDS),
+               output[i]);
   return count;
 }
 
 float positivePower(float x){return x>0?x:0;}
 
 InstantPower makeInstantPower(float grid,float pv,float load,float battery){
-  InstantPower p={};p.grid=positivePower(grid);p.pv=positivePower(pv);
+  InstantPower p={};
+  p.grid=positivePower(grid);
+  p.pv=positivePower(pv);
   p.load=positivePower(load);
-  if(battery>=0)p.batteryCharge=battery;else p.batteryDischarge=-battery;
+  if(battery>=0)p.batteryCharge=battery;
+  else p.batteryDischarge=-battery;
   return p;
 }
 
@@ -342,23 +384,36 @@ void integrateEnergy(const InstantPower& a,const InstantPower& b,
   currentHourEnergy.gridWs+=(a.grid+b.grid)*.5f*seconds;
   currentHourEnergy.pvWs+=(a.pv+b.pv)*.5f*seconds;
   currentHourEnergy.loadWs+=(a.load+b.load)*.5f*seconds;
-  currentHourEnergy.batteryChargeWs+=(a.batteryCharge+b.batteryCharge)*.5f*seconds;
-  currentHourEnergy.batteryDischargeWs+=(a.batteryDischarge+b.batteryDischarge)*.5f*seconds;
+  currentHourEnergy.batteryChargeWs+=
+    (a.batteryCharge+b.batteryCharge)*.5f*seconds;
+  currentHourEnergy.batteryDischargeWs+=
+    (a.batteryDischarge+b.batteryDischarge)*.5f*seconds;
 }
 
 void processHourChange(){
-  time_t now=time(nullptr);if(now<100000)return;
+  time_t now=time(nullptr);
+  if(now<100000)return;
   int64_t key=static_cast<int64_t>(now)/3600;
-  if(activeHourKey<0){activeHourKey=key;return;}
+  if(activeHourKey<0){
+    activeHourKey=key;
+    return;
+  }
   if(key==activeHourKey)return;
+  // Ключ — граница часа по Unix-времени; с заданным целочасовым UTC
+  // смещением она совпадает с границей местного часа.
   if(key==activeHourKey+1)
-    saveHourToEeprom(currentHourEnergy,static_cast<time_t>(activeHourKey*3600));
-  else Serial.println("Пропуск записи: часы изменились больше чем на час");
-  currentHourEnergy={};activeHourKey=key;previousPowerValid=false;
+    saveHourToEeprom(currentHourEnergy,
+                     static_cast<time_t>(activeHourKey*3600));
+  else
+    Serial.println("Пропуск записи: часы изменились больше чем на час");
+  currentHourEnergy={};
+  activeHourKey=key;
+  previousPowerValid=false; // не переносить интервал через границу часа
 }
 
 void resetSamplesAtNewDay(){
-  uint32_t day=currentDayId();if(!day)return;
+  uint32_t day=currentDayId();
+  if(!day)return;
   if(currentDayNumber && day!=currentDayNumber)todaySamples.clear();
   currentDayNumber=day;
 }
@@ -366,25 +421,40 @@ void resetSamplesAtNewDay(){
 void saveFiveMinuteSample(){
   if(!previousPowerValid || !validClock())return;
   uint32_t nowSeconds=millis()/1000UL;
-  if(lastFiveMinuteSampleSeconds && nowSeconds-lastFiveMinuteSampleSeconds<300)return;
-  resetSamplesAtNewDay();time_t now=time(nullptr);struct tm t;localtime_r(&now,&t);
-  WebSample s={};s.timestamp=static_cast<uint32_t>(now);
-  s.minuteOfDay=t.tm_hour*60+t.tm_min;s.gridPower=currentPower.grid;
-  s.pvPower=currentPower.pv;s.loadPower=currentPower.load;
+  if(lastFiveMinuteSampleSeconds &&
+     nowSeconds-lastFiveMinuteSampleSeconds<300)return;
+
+  resetSamplesAtNewDay();
+  time_t now=time(nullptr);
+  struct tm t;
+  localtime_r(&now,&t);
+
+  WebSample s={};
+  s.timestamp=static_cast<uint32_t>(now);
+  s.minuteOfDay=t.tm_hour*60+t.tm_min;
+  s.gridPower=currentPower.grid;
+  s.pvPower=currentPower.pv;
+  s.loadPower=currentPower.load;
   s.batteryChargePower=currentPower.batteryCharge;
   s.batteryDischargePower=currentPower.batteryDischarge;
+
   if(todaySamples.size()>=288)todaySamples.erase(todaySamples.begin());
-  todaySamples.push_back(s);lastFiveMinuteSampleSeconds=nowSeconds;
+  todaySamples.push_back(s);
+  lastFiveMinuteSampleSeconds=nowSeconds;
 }
 
 size_t getTodaySamples(WebSample* output,size_t maxSamples){
-  resetSamplesAtNewDay();size_t count=min(todaySamples.size(),maxSamples);
-  for(size_t i=0;i<count;i++)output[i]=todaySamples[i];return count;
+  resetSamplesAtNewDay();
+  size_t count=min(todaySamples.size(),maxSamples);
+  for(size_t i=0;i<count;i++)output[i]=todaySamples[i];
+  return count;
 }
 
 void setWebHour(WebHistoryHour& out,const HistoryRecord& r){
-  out={};out.year=r.year;out.month=r.month;out.day=r.day;out.hour=r.hour;
-  out.gridKwh=r.gridWs/3600000.0f;out.pvKwh=r.pvWs/3600000.0f;
+  out={};
+  out.year=r.year;out.month=r.month;out.day=r.day;out.hour=r.hour;
+  out.gridKwh=r.gridWs/3600000.0f;
+  out.pvKwh=r.pvWs/3600000.0f;
   out.loadKwh=r.loadWs/3600000.0f;
   out.batteryChargeKwh=r.batteryChargeWs/3600000.0f;
   out.batteryDischargeKwh=r.batteryDischargeWs/3600000.0f;
@@ -392,15 +462,27 @@ void setWebHour(WebHistoryHour& out,const HistoryRecord& r){
 
 size_t getHistoryForWeb(WebHistoryHour* output,size_t maxRecords,
                         const String& scale){
-  (void)scale;static HistoryRecord records[MAX_HISTORY_RECORDS];
-  if(!maxRecords)return 0;size_t count=readAllHistory(records,MAX_HISTORY_RECORDS);
+  (void)scale;
+  static HistoryRecord records[MAX_HISTORY_RECORDS];
+  if(!maxRecords)return 0;
+  size_t count=readAllHistory(records,MAX_HISTORY_RECORDS);
+  // Оставить место для незавершённого текущего часа.
   size_t capacity=maxRecords-(validClock()?1:0);
-  size_t first=count>capacity?count-capacity:0;size_t result=0;
-  for(size_t i=first;i<count;i++)setWebHour(output[result++],records[i]);
+  size_t first=count>capacity?count-capacity:0;
+  size_t result=0;
+  for(size_t i=first;i<count;i++)
+    setWebHour(output[result++],records[i]);
+
   if(validClock() && result<maxRecords){
-    time_t now=time(nullptr);struct tm t;localtime_r(&now,&t);
-    WebHistoryHour& x=output[result++];x={};x.year=t.tm_year+1900;
-    x.month=t.tm_mon+1;x.day=t.tm_mday;x.hour=t.tm_hour;
+    time_t now=time(nullptr);
+    struct tm t;
+    localtime_r(&now,&t);
+    WebHistoryHour& x=output[result++];
+    x={};
+    x.year=t.tm_year+1900;
+    x.month=t.tm_mon+1;
+    x.day=t.tm_mday;
+    x.hour=t.tm_hour;
     x.gridKwh=currentHourEnergy.gridWs/3600000.0f;
     x.pvKwh=currentHourEnergy.pvWs/3600000.0f;
     x.loadKwh=currentHourEnergy.loadWs/3600000.0f;
@@ -412,13 +494,20 @@ size_t getHistoryForWeb(WebHistoryHour* output,size_t maxRecords,
 
 String diagnosticText(uint32_t flags,bool faults){
   if(!flags)return faults?"Неполадок нет":"Предупреждений нет";
-  String text=faults?"Неполадки: ":"Предупреждения: ";bool first=true;
+  String text=faults?"Неполадки: ":"Предупреждения: ";
+  bool first=true;
   for(uint8_t bit=0;bit<32;bit++){
     if(!(flags&(UINT32_C(1)<<bit)))continue;
-    if(!first)text+=F("; ");first=false;
-    text+=faults?faultName(bit):warningName(bit);text+=F(" [");
-    text+=String(bit);text+=']';
-    if(text.length()>210){text+=F("; …");break;}
+    if(!first)text+=F("; ");
+    first=false;
+    text+=faults?faultName(bit):warningName(bit);
+    text+=F(" [");
+    text+=String(bit);
+    text+=']';
+    if(text.length()>210){
+      text+=F("; …");
+      break;
+    }
   }
   return text;
 }
@@ -429,8 +518,13 @@ void processDiagnosticRegisters(uint16_t start,uint16_t count,
   uint32_t flags=(static_cast<uint32_t>(bytes[0])<<24)|
     (static_cast<uint32_t>(bytes[1])<<16)|
     (static_cast<uint32_t>(bytes[2])<<8)|bytes[3];
-  if(start==100){currentFaults=diagnosticText(flags,true);faultRead=true;}
-  else{currentWarnings=diagnosticText(flags,false);warningRead=true;}
+  if(start==100){
+    currentFaults=diagnosticText(flags,true);
+    faultRead=true;
+  }else{
+    currentWarnings=diagnosticText(flags,false);
+    warningRead=true;
+  }
 }
 
 void processPowerRegisters(uint16_t start,uint16_t count,
@@ -438,103 +532,223 @@ void processPowerRegisters(uint16_t start,uint16_t count,
   if(start!=201)return;
   uint16_t grid=0,pv=0,load=0,battery=0;
   uint16_t gv=0,pvV=0,lv=0,bv=0,mode=0,percent=0;
-  if(!getRegisterValue(start,count,bytes,204,grid)||
-     !getRegisterValue(start,count,bytes,223,pv)||
-     !getRegisterValue(start,count,bytes,213,load)||
+  if(!getRegisterValue(start,count,bytes,204,grid) ||
+     !getRegisterValue(start,count,bytes,223,pv) ||
+     !getRegisterValue(start,count,bytes,213,load) ||
      !getRegisterValue(start,count,bytes,217,battery))return;
-  getRegisterValue(start,count,bytes,202,gv);getRegisterValue(start,count,bytes,219,pvV);
-  getRegisterValue(start,count,bytes,210,lv);getRegisterValue(start,count,bytes,215,bv);
-  getRegisterValue(start,count,bytes,201,mode);getRegisterValue(start,count,bytes,229,percent);
+
+  getRegisterValue(start,count,bytes,202,gv);
+  getRegisterValue(start,count,bytes,219,pvV);
+  getRegisterValue(start,count,bytes,210,lv);
+  getRegisterValue(start,count,bytes,215,bv);
+  getRegisterValue(start,count,bytes,201,mode);
+  getRegisterValue(start,count,bytes,229,percent);
+
+  // Сначала закрыть завершённый час, затем учитывать новые показания.
   processHourChange();
-  currentPower=makeInstantPower(signedRegister(grid),signedRegister(pv),signedRegister(load),signedRegister(battery));
-  currentGridVoltage=signedRegister(gv)*.1f;currentPvVoltage=signedRegister(pvV)*.1f;
-  currentLoadVoltage=signedRegister(lv)*.1f;currentBatteryVoltage=signedRegister(bv)*.1f;
-  currentBatteryPercent=static_cast<uint8_t>(min(static_cast<uint16_t>(100),percent));
-  currentMode=workingModeName(mode);modeRead=true;
+  currentPower=makeInstantPower(
+    signedRegister(grid),signedRegister(pv),
+    signedRegister(load),signedRegister(battery));
+  currentGridVoltage=signedRegister(gv)*.1f;
+  currentPvVoltage=signedRegister(pvV)*.1f;
+  currentLoadVoltage=signedRegister(lv)*.1f;
+  currentBatteryVoltage=signedRegister(bv)*.1f;
+  currentBatteryPercent=static_cast<uint8_t>(min(
+    static_cast<uint16_t>(100),percent));
+  currentMode=workingModeName(mode);
+  modeRead=true;
+
   uint32_t nowSeconds=millis()/1000UL;
-  if(previousPowerValid)integrateEnergy(previousPower,currentPower,nowSeconds-previousMeasurementSeconds);
-  previousPower=currentPower;previousPowerValid=true;previousMeasurementSeconds=nowSeconds;
-  currentStatus="Data updated";currentUpdateTime=currentDateTimeString();saveFiveMinuteSample();
+  if(previousPowerValid){
+    integrateEnergy(previousPower,currentPower,
+                    nowSeconds-previousMeasurementSeconds);
+  }
+  previousPower=currentPower;
+  previousPowerValid=true;
+  previousMeasurementSeconds=nowSeconds;
+  currentStatus="Data updated";
+  currentUpdateTime=currentDateTimeString();
+  saveFiveMinuteSample();
 }
 
 void printRegisterValue(uint16_t address,uint16_t raw){
   const RegisterDefinition* def=findRegisterDefinition(address);
-  Serial.print("Register ");Serial.print(address);Serial.print(" | HEX 0x");
-  printHexByte(highByte(raw));printHexByte(lowByte(raw));Serial.print(" | ");
-  if(!def){Serial.println(raw);return;}
-  Serial.print(def->title);Serial.print(" = ");
-  float value=def->type==REG_SHORT?signedRegister(raw)*def->scale:raw*def->scale;
-  Serial.print(value,2);if(def->unit && def->unit[0]){Serial.print(' ');Serial.print(def->unit);}
-  if(address==201){Serial.print(" (");Serial.print(workingModeName(raw));Serial.print(')');}
+  Serial.print("Register ");
+  Serial.print(address);
+  Serial.print(" | HEX 0x");
+  printHexByte(highByte(raw));
+  printHexByte(lowByte(raw));
+  Serial.print(" | ");
+  if(!def){
+    Serial.println(raw);
+    return;
+  }
+  Serial.print(def->title);
+  Serial.print(" = ");
+  float value=def->type==REG_SHORT?signedRegister(raw)*def->scale:
+                                    raw*def->scale;
+  Serial.print(value,2);
+  if(def->unit && def->unit[0]){
+    Serial.print(' ');
+    Serial.print(def->unit);
+  }
+  if(address==201){
+    Serial.print(" (");
+    Serial.print(workingModeName(raw));
+    Serial.print(')');
+  }
   Serial.println();
 }
 
-void printRegisterRange(uint16_t start,uint16_t count,const uint8_t* bytes){
+void printRegisterRange(uint16_t start,uint16_t count,
+                        const uint8_t* bytes){
   Serial.println("----------------------------------------");
   Serial.printf("Диапазон %u-%u\n",start,start+count-1);
   for(uint16_t i=0;i<count;i++){
-    uint16_t raw=(static_cast<uint16_t>(bytes[i*2])<<8)|bytes[i*2+1];
+    uint16_t raw=(static_cast<uint16_t>(bytes[i*2])<<8)|
+                 bytes[i*2+1];
     printRegisterValue(start+i,raw);
   }
-  processDiagnosticRegisters(start,count,bytes);processPowerRegisters(start,count,bytes);
+  processDiagnosticRegisters(start,count,bytes);
+  processPowerRegisters(start,count,bytes);
 }
 
 bool readModbusRange(uint16_t start,uint16_t count){
   if(!count || count>34 || !ensureInverterConnection())return false;
-  uint8_t request[8];buildReadRequest(start,count,request);
-  Serial.print("Modbus request: ");printHexBuffer(request,sizeof(request));
-  if(inverterClient.write(request,sizeof(request))!=sizeof(request)){inverterClient.stop();return false;}
+  uint8_t request[8];
+  buildReadRequest(start,count,request);
+  Serial.print("Modbus request: ");
+  printHexBuffer(request,sizeof(request));
+
+  if(inverterClient.write(request,sizeof(request))!=sizeof(request)){
+    inverterClient.stop();
+    return false;
+  }
   uint8_t response[MAX_RESPONSE_SIZE]={};
-  if(!readExactly(inverterClient,response,3,MODBUS_RESPONSE_TIMEOUT_MS)){inverterClient.stop();return false;}
+  if(!readExactly(inverterClient,response,3,MODBUS_RESPONSE_TIMEOUT_MS)){
+    Serial.println("Тайм-аут заголовка");
+    inverterClient.stop();
+    return false;
+  }
   size_t length=(response[1]&0x80)?5:3+response[2]+2;
-  if(length>sizeof(response)||length<5||!readExactly(inverterClient,response+3,length-3,MODBUS_RESPONSE_TIMEOUT_MS)){inverterClient.stop();return false;}
+  if(length>sizeof(response) || length<5 ||
+     !readExactly(inverterClient,response+3,length-3,
+                  MODBUS_RESPONSE_TIMEOUT_MS)){
+    Serial.println("Неверная длина или тайм-аут ответа");
+    inverterClient.stop();
+    return false;
+  }
+  Serial.print("Modbus response: ");
+  printHexBuffer(response,length);
   uint16_t crc=crc16Modbus(response,length-2);
-  uint16_t received=response[length-2]|(static_cast<uint16_t>(response[length-1])<<8);
-  if(crc!=received||response[0]!=MODBUS_UNIT_ID){inverterClient.stop();return false;}
-  if(response[1]==(MODBUS_FUNCTION|0x80))return false;
-  if(response[1]!=MODBUS_FUNCTION||response[2]!=count*2)return false;
-  printRegisterRange(start,count,response+3);return true;
+  uint16_t received=response[length-2]|
+                    (static_cast<uint16_t>(response[length-1])<<8);
+  if(crc!=received || response[0]!=MODBUS_UNIT_ID){
+    Serial.println("Ошибка CRC или Unit ID");
+    inverterClient.stop();
+    return false;
+  }
+  if(response[1]==(MODBUS_FUNCTION|0x80)){
+    Serial.printf("Исключение Modbus: %u\n",response[2]);
+    return false;
+  }
+  if(response[1]!=MODBUS_FUNCTION || response[2]!=count*2){
+    Serial.println("Неверный ответ Modbus");
+    return false;
+  }
+  printRegisterRange(start,count,response+3);
+  return true;
 }
 
 void copyWebText(char* destination,size_t capacity,const String& source){
-  if(!capacity)return;strlcpy(destination,source.c_str(),capacity);
+  if(!capacity)return;
+  strlcpy(destination,source.c_str(),capacity);
 }
 
 void fillWebLiveData(WebLiveData& d){
-  d={};d.valid=previousPowerValid;
-  copyWebText(d.status,sizeof(d.status),currentStatus);copyWebText(d.updateTime,sizeof(d.updateTime),currentUpdateTime);
+  d={};
+  d.valid=previousPowerValid;
+  copyWebText(d.status,sizeof(d.status),currentStatus);
+  copyWebText(d.updateTime,sizeof(d.updateTime),currentUpdateTime);
   copyWebText(d.inverterIp,sizeof(d.inverterIp),appSettings.inverterIp);
-  copyWebText(d.mode,sizeof(d.mode),modeRead?currentMode:String("Ожидание данных"));
-  copyWebText(d.faults,sizeof(d.faults),faultRead?currentFaults:String("Диагностика неполадок недоступна"));
-  copyWebText(d.warnings,sizeof(d.warnings),warningRead?currentWarnings:String("Диагностика предупреждений недоступна"));
-  d.gridPower=currentPower.grid;d.pvPower=currentPower.pv;d.loadPower=currentPower.load;
-  d.batteryChargePower=currentPower.batteryCharge;d.batteryDischargePower=currentPower.batteryDischarge;
-  d.batteryPower=currentPower.batteryCharge-currentPower.batteryDischarge;
-  d.gridVoltage=currentGridVoltage;d.pvVoltage=currentPvVoltage;d.loadVoltage=currentLoadVoltage;d.batteryVoltage=currentBatteryVoltage;
-  d.batteryPercent=currentBatteryPercent;d.gridKwh=currentHourEnergy.gridWs/3600000.0f;d.pvKwh=currentHourEnergy.pvWs/3600000.0f;
-  d.loadKwh=currentHourEnergy.loadWs/3600000.0f;d.batteryChargeKwh=currentHourEnergy.batteryChargeWs/3600000.0f;
-  d.batteryDischargeKwh=currentHourEnergy.batteryDischargeWs/3600000.0f;
+  copyWebText(d.mode,sizeof(d.mode),
+              modeRead?currentMode:String("Ожидание данных"));
+  copyWebText(d.faults,sizeof(d.faults),
+              faultRead?currentFaults:String("Диагностика неполадок недоступна"));
+  copyWebText(d.warnings,sizeof(d.warnings),
+              warningRead?currentWarnings:
+                          String("Диагностика предупреждений недоступна"));
+  d.gridPower=currentPower.grid;
+  d.pvPower=currentPower.pv;
+  d.loadPower=currentPower.load;
+  d.batteryChargePower=currentPower.batteryCharge;
+  d.batteryDischargePower=currentPower.batteryDischarge;
+  d.batteryPower=currentPower.batteryCharge-
+                 currentPower.batteryDischarge;
+  d.gridVoltage=currentGridVoltage;
+  d.pvVoltage=currentPvVoltage;
+  d.loadVoltage=currentLoadVoltage;
+  d.batteryVoltage=currentBatteryVoltage;
+  d.batteryPercent=currentBatteryPercent;
+  d.gridKwh=currentHourEnergy.gridWs/3600000.0f;
+  d.pvKwh=currentHourEnergy.pvWs/3600000.0f;
+  d.loadKwh=currentHourEnergy.loadWs/3600000.0f;
+  d.batteryChargeKwh=currentHourEnergy.batteryChargeWs/3600000.0f;
+  d.batteryDischargeKwh=
+    currentHourEnergy.batteryDischargeWs/3600000.0f;
 }
 
 void setup(){
-  Serial.begin(115200);delay(1000);Serial.println("\nANENJI Datalogger / ESP32");
-  loadSettings();EEPROM.begin(EEPROM_SIZE);HistoryHeader header;initializeHistoryHeader(header);
-  if(!connectToWiFi()){startSetupAccessPoint();return;}
-  synchronizeTime();processHourChange();tcpServer.begin();
-  beginWebServer(fillWebLiveData,getTodaySamples,getHistoryForWeb,saveSettings,appSettings,false);
+  Serial.begin(115200);
+  delay(1000);
+  Serial.println("\nANENJI Datalogger / ESP32");
+  loadSettings();
+  EEPROM.begin(EEPROM_SIZE);
+  HistoryHeader header;
+  initializeHistoryHeader(header);
+
+  if(!connectToWiFi()){
+    startSetupAccessPoint();
+    return;
+  }
+  synchronizeTime();
+  processHourChange();
+  tcpServer.begin();
+  beginWebServer(fillWebLiveData,getTodaySamples,getHistoryForWeb,
+                 saveSettings,appSettings,false);
+  Serial.printf("Веб-сервер запущен; часовых записей: %u\n",
+                static_cast<unsigned>(MAX_HISTORY_RECORDS));
 }
 
 void loop(){
   handleWebServer();
-  if(setupAccessPoint){delay(5);return;}
+  if(setupAccessPoint){
+    delay(5);
+    return;
+  }
+
   if(WiFi.status()!=WL_CONNECTED){
-    inverterClient.stop();if(!connectToWiFi()){startSetupAccessPoint();return;}
-    synchronizeTime();tcpServer.begin();
+    inverterClient.stop();
+    if(!connectToWiFi()){
+      startSetupAccessPoint();
+      return;
+    }
+    synchronizeTime();
+    tcpServer.begin();
   }
-  static uint32_t lastReadMillis=0;uint32_t nowMillis=millis();
-  if(nowMillis-lastReadMillis>=appSettings.registerIntervalSeconds*1000UL){
+
+  static uint32_t lastReadMillis=0;
+  uint32_t nowMillis=millis();
+  if(nowMillis-lastReadMillis>=
+     appSettings.registerIntervalSeconds*1000UL){
     lastReadMillis=nowMillis;
-    for(size_t i=0;i<READ_RANGE_COUNT;i++){readModbusRange(READ_RANGES[i].start,READ_RANGES[i].count);handleWebServer();delay(200);}
+    for(size_t i=0;i<READ_RANGE_COUNT;i++){
+      readModbusRange(READ_RANGES[i].start,READ_RANGES[i].count);
+      handleWebServer();
+      delay(200);
+    }
   }
-  processHourChange();saveFiveMinuteSample();delay(2);
+  processHourChange();
+  saveFiveMinuteSample();
+  delay(2);
 }
