@@ -162,8 +162,8 @@ void synchronizeTime(){
 
 void loadSettings(){
   preferences.begin("anenji",true);
-  appSettings.ssid=preferences.getString("ssid","Keenetic-0138");
-  appSettings.password=preferences.getString("password","Cnvct2aF");
+  appSettings.ssid=preferences.getString("ssid","WI-FI_SSID");
+  appSettings.password=preferences.getString("password","Password");
   appSettings.inverterIp=preferences.getString("inverterIp","192.168.0.148");
   appSettings.pageUpdateSeconds=preferences.getUInt("pageUpdate",5);
   appSettings.registerIntervalSeconds=
